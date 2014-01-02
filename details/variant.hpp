@@ -5,8 +5,6 @@
 #include <cassert>
 #include <new>
 
-#include <boost/mpl/or.hpp>
-
 namespace detail {
 
 #include "data.inc"
