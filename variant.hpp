@@ -26,6 +26,9 @@ struct pack_contains;
 template<typename U, typename... Ts>
 struct assert_pack_contains;
 
+template<typename... Ts>
+struct has_duplicates;
+
 template<typename U>
 struct member_normalize;
 
@@ -50,6 +53,8 @@ class variant {
     using assert_pack_explicitly_contains = detail::assert_pack_contains<U, Types...>;
     template<typename U>
     using pack_find = detail::pack_find<parameter_normalize<U>, parameter_normalize<Types>...>;
+
+    static_assert(!detail::has_duplicates<parameter_normalize<Types>...>::value, "cannot have duplicate types in variant");
 
     detail::variant_data<member_normalize<Types>...> data;
     int current = sizeof...(Types);
@@ -99,6 +104,17 @@ class variant {
     template<typename U>
     U& get_ref() {
         return const_cast<U&>(get_cref<U>());
+    }
+
+    template<typename U>
+    bool contains_impl(std::true_type) {
+        return pack_find<U>::value == current;
+    }
+
+    template<typename U>
+    bool contains_impl(std::false_type) {
+        assert(!"internal error: contains on non-existent type");
+        return false;
     }
 
     void destroy_current() {
@@ -187,7 +203,6 @@ public:
     void emplace(Args&&... args) {
         assert_pack_explicitly_contains<U>();
         using index = pack_find<U>;
-        static_assert(index::found, "variant has no such member");
         destroy_current();
         auto p = get<U>();
         detail::construct<U>::exec(p, std::forward<Args>(args)...);
@@ -196,37 +211,37 @@ public:
 
     template<typename U>
     bool contains() const {
-        using index = pack_find<U>;
-        static_assert(index::found, "variant has no such member");
-        return index::value == current;
+        auto flag = assert_pack_explicitly_contains<U>{};
+        return contains_impl<U>(flag);
     }
 
     template<typename U>
     friend U const& get(variant const& v) {
-        assert_pack_explicitly_contains<U>();
-        assert(v.template contains<U>() && "member not currently set");
+        auto flag = assert_pack_explicitly_contains<U>{};
+        (void)flag;
+        assert(v.template contains_impl<U>(flag) && "member not currently set");
         return v.template get_cref<U>();
     }
 
     template<typename U>
     friend U& get(variant& v) {
-        assert_pack_explicitly_contains<U>();
-        assert(v.template contains<U>() && "member not currently set");
+        auto flag = assert_pack_explicitly_contains<U>{};
+        assert(v.template contains_impl<U>(flag) && "member not currently set");
         return v.template get_ref<U>();
     }
 
     template<typename U>
     friend U const* get(variant const* v) {
-        assert_pack_explicitly_contains<U>();
-        if (v->template contains<U>())
+        auto flag = assert_pack_explicitly_contains<U>{};
+        if (v->template contains_impl<U>(flag))
             return &v->template get_cref<U>();
         return nullptr;
     }
 
     template<typename U>
     friend U* get(variant* v) {
-        assert_pack_explicitly_contains<U>();
-        if (v->template contains<U>())
+        auto flag = assert_pack_explicitly_contains<U>{};
+        if (v->template contains_impl<U>(flag))
             return &v->template get_ref<U>();
         return nullptr;
     }

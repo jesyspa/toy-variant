@@ -29,9 +29,19 @@ template<typename U, typename... Ts>
 struct pack_contains : std::integral_constant<bool, pack_find<U, Ts...>::found> {};
 
 template<typename U, typename... Ts>
-struct assert_pack_contains {
-    static_assert(pack_find<U, Ts...>::found, "variant has no such member");
+struct assert_pack_contains : pack_contains<U, Ts...> {
+    static_assert(assert_pack_contains::value, "variant has no such member");
 };
+
+template<typename... Ts>
+struct has_duplicates;
+
+template<>
+struct has_duplicates<> : std::false_type {};
+
+template<typename U, typename... Ts>
+struct has_duplicates<U, Ts...> :
+    std::integral_constant<bool, pack_contains<U, Ts...>::value || has_duplicates<Ts...>::value> {};
 
 template<typename U>
 struct member_normalize {
