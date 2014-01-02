@@ -9,5 +9,6 @@ namespace detail {
 
 #include "data.inc"
 #include "utility.inc"
+#include "runtime_helpers.inc"
 
 }

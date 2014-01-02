@@ -12,10 +12,7 @@ template<typename U>
 struct internal_error;
 
 template<typename...>
-union variant_data_impl;
-
-template<typename...>
-struct variant_data;
+union variant_data;
 
 template<typename U, typename... Ts>
 struct pack_find;
@@ -30,38 +27,46 @@ template<typename... Ts>
 struct has_duplicates;
 
 template<typename U>
-struct member_normalize;
+struct member_representation;
 
 template<typename U>
-struct parameter_normalize;
+struct normalize;
 
 template<typename T>
-struct construct;
+struct construct_object;
+
+template<typename T>
+struct copy_object;
+
+template<typename T>
+struct move_object;
+
+template<typename T>
+struct destroy_object;
 }
 
 template<typename... Types>
 class variant {
     template<typename U>
-    using member_normalize = typename detail::member_normalize<U>::type;
+    using normalize = typename detail::normalize<U>::type;
     template<typename U>
-    using parameter_normalize = typename detail::parameter_normalize<U>::type;
+    using pack_contains = detail::pack_contains<normalize<U>, normalize<Types>...>;
     template<typename U>
-    using pack_contains = detail::pack_contains<parameter_normalize<U>, parameter_normalize<Types>...>;
-    template<typename U>
-    using assert_pack_contains = detail::assert_pack_contains<parameter_normalize<U>, parameter_normalize<Types>...>;
+    using assert_pack_contains = detail::assert_pack_contains<normalize<U>, normalize<Types>...>;
     template<typename U>
     using assert_pack_explicitly_contains = detail::assert_pack_contains<U, Types...>;
     template<typename U>
-    using pack_find = detail::pack_find<parameter_normalize<U>, parameter_normalize<Types>...>;
+    using pack_find = detail::pack_find<normalize<U>, normalize<Types>...>;
 
-    static_assert(!detail::has_duplicates<parameter_normalize<Types>...>::value, "cannot have duplicate types in variant");
+    static_assert(!detail::has_duplicates<normalize<Types>...>::value, "cannot have duplicate types in variant");
 
-    detail::variant_data<member_normalize<Types>...> data;
+    using storage_type = detail::variant_data<Types...>;
+    storage_type data;
     int current = sizeof...(Types);
 
     template<typename U>
     void const* cget_impl(std::true_type) const {
-        return data.template get<U>();
+        return data.template cget<U>();
     }
 
     template<typename U>
@@ -72,7 +77,7 @@ class variant {
 
     template<typename U>
     void const* cget() const {
-        return cget_impl<parameter_normalize<U>>(pack_contains<U>{});
+        return cget_impl<normalize<U>>(pack_contains<U>{});
     }
 
     template<typename U>
@@ -83,6 +88,18 @@ class variant {
     template<typename U>
     void* get() {
         return const_cast<void*>(cget<U>());
+    }
+
+    void const* cget(int n) const {
+        return data.cget(n);
+    }
+
+    void const* get(int n) const {
+        return cget(n);
+    }
+
+    void* get(int n) {
+        return const_cast<void*>(cget(n));
     }
 
     template<typename U>
@@ -120,35 +137,44 @@ class variant {
     void destroy_current() {
         if (current == sizeof...(Types))
             return;
-        auto p = data.get(current);
-        auto f = data.get_destructor(current);
+        auto p = get(current);
+        auto f = storage_type::get_destructor(current);
         f(p);
         current = sizeof...(Types);
     }
 
+    template<typename U, typename... Args>
+    void emplace_impl(Args&&... args) {
+        using index = pack_find<U>;
+        destroy_current();
+        auto p = get<U>();
+        detail::construct_object<U>::exec(p, std::forward<Args>(args)...);
+        current = index::value;
+    };
+
     void copy(variant const& v) {
         if (v.current == sizeof...(Types))
             return;
-        copy(v.current, v.data.get(v.current));
+        copy(v.current, v.get(v.current));
         current = v.current;
     }
 
     void move(variant&& v) {
         if (v.current == sizeof...(Types))
             return;
-        move(v.current, v.data.get(v.current));
+        move(v.current, v.get(v.current));
         current = v.current;
     }
 
     void copy(int n, void const* other) {
-        auto f = data.get_copy_constructor(n);
-        auto p = data.get(n);
+        auto f = storage_type::get_copy_constructor(n);
+        auto p = get(n);
         f(p, other);
     }
 
     void move(int n, void* other) {
-        auto f = data.get_move_constructor(n);
-        auto p = data.get(n);
+        auto f = storage_type::get_move_constructor(n);
+        auto p = get(n);
         f(p, other);
     }
 
@@ -165,10 +191,9 @@ public:
 
     template<typename U, typename = std::enable_if_t<pack_find<U>::found>>
     variant(U&& u) {
-        using normalized = parameter_normalize<U>;
         using index = pack_find<U>;
         auto p = get<U>();
-        detail::construct<U>::exec(p, std::forward<U>(u));
+        detail::construct_object<U>::exec(p, std::forward<U>(u));
         current = index::value;
     }
 
@@ -190,8 +215,7 @@ public:
 
     template<typename U, typename = std::enable_if_t<pack_find<U>::found>>
     variant& operator=(U&& v) {
-        destroy_current();
-        emplace<U>(std::forward<U>(v));
+        emplace_impl<U>(std::forward<U>(v));
         return *this;
     }
 
@@ -202,11 +226,7 @@ public:
     template<typename U, typename... Args>
     void emplace(Args&&... args) {
         assert_pack_explicitly_contains<U>();
-        using index = pack_find<U>;
-        destroy_current();
-        auto p = get<U>();
-        detail::construct<U>::exec(p, std::forward<Args>(args)...);
-        current = index::value;
+        emplace_impl<U>(std::forward<Args>(args)...);
     }
 
     template<typename U>

@@ -44,28 +44,19 @@ struct has_duplicates<U, Ts...> :
     std::integral_constant<bool, pack_contains<U, Ts...>::value || has_duplicates<Ts...>::value> {};
 
 template<typename U>
-struct member_normalize {
+struct member_representation {
     using type = U;
 };
 
 template<typename U>
-struct parameter_normalize : 
+struct member_representation<U&> {
+    using type = U*;
+};
+
+template<typename U>
+struct normalize :
     std::remove_const<
         typename std::remove_reference<
             typename std::remove_const<U>::type
         >::type> {};
 
-template<typename T>
-struct construct {
-    template<typename... Args>
-    static void exec(void* ptr, Args&&... args) {
-        new (ptr) T(std::forward<Args>(args)...);
-    }
-};
-
-template<typename T>
-struct construct<T&> {
-    static void exec(void* ptr, T& init) {
-        new (ptr) T*(&init);
-    }
-};

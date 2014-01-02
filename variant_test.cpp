@@ -72,4 +72,10 @@ int main() {
     LOG(get<int&>(vr) = 8);
     PRINT(get<int&>(vr));
     PRINT(j);
+
+    using var_const = variant<int const, B const>;
+    LOG(var_const vc);
+    LOG(vc = 5);
+    PRINT(get<int const>(vc));
+    LOG(vc.emplace<B const>());
 }
