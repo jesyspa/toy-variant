@@ -26,8 +26,11 @@ struct pack_find_impl<N, U> {
 };
 
 template<typename U, typename... Ts>
+struct pack_contains : std::integral_constant<bool, pack_find<U, Ts...>::found> {};
+
+template<typename U, typename... Ts>
 struct assert_pack_contains {
-    static_assert(pack_contains<U, Ts...>::value, "variant has no such member");
+    static_assert(pack_find<U, Ts...>::found, "variant has no such member");
 };
 
 template<typename U>

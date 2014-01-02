@@ -3,8 +3,6 @@
 #include <cassert>
 #include <type_traits>
 
-#include <boost/mpl/or.hpp>
-
 namespace detail {
 using destroy_func = void(*)(void*);
 using copy_func = void(*)(void*, void const*);
@@ -20,10 +18,10 @@ template<typename...>
 struct variant_data;
 
 template<typename U, typename... Ts>
-using pack_contains = boost::mpl::or_<std::is_same<U, Ts>...>;
+struct pack_find;
 
 template<typename U, typename... Ts>
-struct pack_find;
+struct pack_contains;
 
 template<typename U, typename... Ts>
 struct assert_pack_contains;
@@ -45,6 +43,8 @@ class variant {
     template<typename U>
     using parameter_normalize = typename detail::parameter_normalize<U>::type;
     template<typename U>
+    using pack_contains = detail::pack_contains<parameter_normalize<U>, parameter_normalize<Types>...>;
+    template<typename U>
     using assert_pack_contains = detail::assert_pack_contains<parameter_normalize<U>, parameter_normalize<Types>...>;
     template<typename U>
     using assert_pack_explicitly_contains = detail::assert_pack_contains<U, Types...>;
@@ -55,13 +55,29 @@ class variant {
     int current = sizeof...(Types);
 
     template<typename U>
-    void* get() {
-        return data.template get<parameter_normalize<U>>();
+    void const* cget_impl(std::true_type) const {
+        return data.template get<U>();
+    }
+
+    template<typename U>
+    void const* cget_impl(std::false_type) const {
+        assert(!"internal error: get on non-existent type");
+        return nullptr;
+    }
+
+    template<typename U>
+    void const* cget() const {
+        return cget_impl<parameter_normalize<U>>(pack_contains<U>{});
     }
 
     template<typename U>
     void const* get() const {
-        return data.template get<parameter_normalize<U>>();
+        return cget<U>();
+    }
+
+    template<typename U>
+    void* get() {
+        return const_cast<void*>(cget<U>());
     }
 
     template<typename U>
