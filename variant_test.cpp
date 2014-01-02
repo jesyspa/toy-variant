@@ -62,6 +62,11 @@ int main() {
     LOG(v2 = std::move(v));
     LOG(int const i = 1);
     LOG(var v3(i));
+    LOG(auto p = get<int>(&v3));
+    if (p)
+        PRINT(*p);
+    else
+        PRINT(p);
 
     using var_ref = variant<int&, B>;
     PRINT(sizeof(var_ref));

@@ -50,13 +50,13 @@ class variant {
     template<typename U>
     using normalize = typename detail::normalize<U>::type;
     template<typename U>
-    using pack_contains = detail::pack_contains<normalize<U>, normalize<Types>...>;
+    using pack_contains = detail::pack_contains<U, Types...>;
     template<typename U>
     using assert_pack_contains = detail::assert_pack_contains<normalize<U>, normalize<Types>...>;
     template<typename U>
     using assert_pack_explicitly_contains = detail::assert_pack_contains<U, Types...>;
     template<typename U>
-    using pack_find = detail::pack_find<normalize<U>, normalize<Types>...>;
+    using pack_find = detail::pack_find<U, Types...>;
 
     static_assert(!detail::has_duplicates<normalize<Types>...>::value, "cannot have duplicate types in variant");
 
@@ -189,11 +189,12 @@ public:
         move(std::move(v));
     }
 
-    template<typename U, typename = std::enable_if_t<pack_find<U>::found>>
+    template<typename U, typename = std::enable_if_t<pack_contains<U>::value>>
     variant(U&& u) {
         using index = pack_find<U>;
-        auto p = get<U>();
-        detail::construct_object<U>::exec(p, std::forward<U>(u));
+        using E = typename index::type;
+        auto p = get<E>();
+        detail::construct_object<E>::exec(p, std::forward<U>(u));
         current = index::value;
     }
 
@@ -213,7 +214,7 @@ public:
         return *this;
     }
 
-    template<typename U, typename = std::enable_if_t<pack_find<U>::found>>
+    template<typename U, typename = std::enable_if_t<pack_contains<U>::value>>
     variant& operator=(U&& v) {
         emplace_impl<U>(std::forward<U>(v));
         return *this;
