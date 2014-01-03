@@ -60,10 +60,10 @@ template <template <typename> class NORM, typename T, typename... Pack>
 struct has_duplicates<NORM, T, Pack...> : std::integral_constant<bool, pack_contains<NORM, T, Pack...>::value ||
                                                                            has_duplicates<NORM, Pack...>::value> {};
 
-template<typename T>
+template <typename T>
 struct is_recursive : std::false_type {};
 
-template<typename T>
+template <typename T>
 struct is_recursive<recursive_helper<T>> : std::true_type {};
 
 namespace impl {
@@ -100,7 +100,7 @@ template <typename T>
 struct store_form : std::remove_const<T> {};
 
 template <typename T>
-struct store_form<T&> : std::add_lvalue_reference<typename store_form<T>::type> { };
+struct store_form<T&> : std::add_lvalue_reference<typename store_form<T>::type> {};
 
 template <typename T>
 struct store_form<recursive_helper<T>> {

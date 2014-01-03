@@ -1,7 +1,9 @@
 #pragma once
 
 #include <cassert>
+#include <exception>
 #include <type_traits>
+#include <utility>
 
 namespace detail {
 using destroy_func = void (*)(void*);
@@ -79,6 +81,13 @@ template <typename T>
 struct recursive_helper {
     static_assert(!std::is_reference<T>::value, "no need for recursive helper on references");
 };
+
+template <typename Ret>
+struct visitor {
+    using result_type = Ret;
+};
+
+struct empty_variant_error : std::exception {};
 
 template <typename... Types>
 class variant {
@@ -171,9 +180,7 @@ class variant {
         current = invalid;
     }
 
-    bool currently_recursive() const {
-        return current != invalid && data.is_recursive(current);
-    }
+    bool currently_recursive() const { return current != invalid && data.is_recursive(current); }
 
     template <typename TQuery, typename... Args>
     void emplace_impl(Args&&... args) {
@@ -183,7 +190,7 @@ class variant {
         auto p = get<TDecl>();
         detail::operations<store_form<TDecl>>::construct(p, std::forward<Args>(args)...);
         current = index::value;
-    };
+    }
 
     void copy(variant const& v) {
         if (v.current == invalid)
@@ -276,6 +283,20 @@ public:
         return contains_impl<TQuery>(flag);
     }
 
+    template <typename Visitor>
+    auto apply_visitor(Visitor&& vis) const -> typename std::remove_reference<Visitor>::type::result_type {
+        if (current == invalid)
+            throw empty_variant_error{};
+        return data.apply(std::forward<Visitor>(vis), current);
+    }
+
+    template <typename Visitor>
+    auto apply_visitor(Visitor&& vis) -> typename std::remove_reference<Visitor>::type::result_type {
+        if (current == invalid)
+            throw empty_variant_error{};
+        return data.apply(std::forward<Visitor>(vis), current);
+    }
+
     template <typename TQuery>
     friend unique_form<TQuery> const& get(variant const& v) {
         using TDecl = typename query<TQuery>::type;
@@ -316,6 +337,11 @@ public:
 // Necessary, as the friend declarations declare get to be in the scope of variant.
 template <typename U, typename... Types>
 U const& get(variant<Types...> const&);
+
+template <typename Visitor, typename Variant>
+auto apply_visitor(Visitor&& vis, Variant&& var) -> typename std::remove_reference<Visitor>::type::result_type {
+    return var.apply_visitor(std::forward<Visitor>(vis));
+}
 
 #include "details/variant.hpp"
 

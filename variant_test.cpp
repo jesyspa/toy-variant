@@ -34,8 +34,13 @@ struct broken {
     }
 };
 
-#define LOG(stmt) std::cout << ">>> " << #stmt << ";\n"; stmt
-#define PRINT(expr) do { std::cout << "--- " << #expr << " == " << (expr) << "\n"; } while (false)
+#define LOG(stmt)                                                                                                      \
+    std::cout << ">>> " << #stmt << ";\n";                                                                             \
+    stmt
+#define PRINT(expr)                                                                                                    \
+    do {                                                                                                               \
+        std::cout << "--- " << #expr << " == " << (expr) << "\n";                                                      \
+    } while (false)
 
 int main() {
     using tracked::B;
@@ -86,13 +91,13 @@ int main() {
 
     struct nil {};
     struct cell;
-    using var_rec = variant<nil, recursive_helper<cell>>;
+    using var_list = variant<nil, recursive_helper<cell>>;
     struct cell {
         int head;
-        var_rec tail;
+        var_list tail;
     };
 
-    LOG(auto cons = [](int i, var_rec v) -> var_rec { return (cell{i, v}); });
+    LOG(auto cons = [](int i, var_list v)->var_list { return (cell{i, v}); });
     LOG(auto val = cons(5, cons(6, cons(7, nil{}))));
 
     LOG(auto total = 0);
@@ -101,4 +106,30 @@ int main() {
         LOG(val = ptr->tail);
         PRINT(total);
     }
+
+    LOG(val = cons(1, cons(4, nil{})));
+
+    struct list_sum_visitor : visitor<int> {
+        int operator()(nil) const { return 0; }
+
+        int operator()(cell const& c) const { return c.head + apply_visitor(*this, c.tail); }
+    };
+    PRINT(apply_visitor(list_sum_visitor{}, val));
+
+    struct stateful_sum_visitor : visitor<void> {
+        int visits = 0;
+        int sum = 0;
+
+        void operator()(nil) { visits += 1; }
+
+        void operator()(cell const& c) {
+            visits += 1;
+            sum += c.head;
+            apply_visitor(*this, c.tail);
+        }
+    };
+    LOG(stateful_sum_visitor visitor);
+    LOG(apply_visitor(visitor, val));
+    PRINT(visitor.visits);
+    PRINT(visitor.sum);
 }
