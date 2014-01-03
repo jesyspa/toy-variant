@@ -49,6 +49,13 @@ int main() {
 
     LOG(var v);
     LOG(v.emplace<int>(5));
+    try {
+        LOG(get<B>(v));
+    }
+    catch (invalid_get_error&) {
+        std::cout << "recovered from exception\n";
+    }
+
     PRINT(get<int>(v));
     LOG(v.emplace<B>());
     LOG(var v2 = B{});

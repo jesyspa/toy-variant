@@ -88,6 +88,7 @@ struct visitor {
 };
 
 struct empty_variant_error : std::exception {};
+struct invalid_get_error : std::exception {};
 
 template <typename... Types>
 class variant {
@@ -301,18 +302,18 @@ public:
     friend unique_form<TQuery> const& get(variant const& v) {
         using TDecl = typename query<TQuery>::type;
         auto flag = assert_pack_explicitly_contains<TQuery>{};
-        (void)flag;
-        assert(v.template contains_impl<TDecl>(flag) && "member not currently set");
-        return v.template get_cref<TDecl>();
+        if (v.template contains_impl<TDecl>(flag))
+            return v.template get_cref<TDecl>();
+        throw invalid_get_error{};
     }
 
     template <typename TQuery>
     friend unique_form<TQuery>& get(variant& v) {
         using TDecl = typename query<TQuery>::type;
         auto flag = assert_pack_explicitly_contains<TQuery>{};
-        (void)flag;
-        assert(v.template contains_impl<TDecl>(flag) && "member not currently set");
-        return v.template get_ref<TDecl>();
+        if (v.template contains_impl<TDecl>(flag))
+            return v.template get_ref<TDecl>();
+        throw invalid_get_error{};
     }
 
     template <typename TQuery>
