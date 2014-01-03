@@ -83,4 +83,22 @@ int main() {
     LOG(vc = 5);
     PRINT(get<int const>(vc));
     LOG(vc.emplace<B const>());
+
+    struct nil {};
+    struct cell;
+    using var_rec = variant<nil, recursive_helper<cell>>;
+    struct cell {
+        int head;
+        var_rec tail;
+    };
+
+    LOG(auto cons = [](int i, var_rec v) -> var_rec { return (cell{i, v}); });
+    LOG(auto val = cons(5, cons(6, cons(7, nil{}))));
+
+    LOG(auto total = 0);
+    while (auto ptr = get<cell>(&val)) {
+        LOG(total += ptr->head);
+        LOG(val = ptr->tail);
+        PRINT(total);
+    }
 }
