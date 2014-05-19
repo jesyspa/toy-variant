@@ -32,7 +32,7 @@ struct has_duplicates;
 template <typename T>
 struct is_recursive;
 
-// Normal forms.  We have six:
+// Normal forms.  We have five:
 //   - decl-form is the form in which the user passes us types when defining the
 //     variant.  These types are of the form:
 //          T, T const, T&, T const&, rh<T>, rh<T const>
@@ -92,20 +92,31 @@ struct invalid_get_error : std::exception {};
 
 template <typename... Types>
 class variant {
+    // Metafunctions for converting to a specific form.
     template <typename T>
     using query_form = typename detail::query_form<T>::type;
     template <typename T>
     using store_form = typename detail::store_form<T>::type;
     template <typename T>
     using unique_form = typename detail::unique_form<T>::type;
+
+    // Find the given type in Types using query form.
     template <typename T>
     using query = detail::pack_find<detail::query_form, T, Types...>;
+
+    // Check whether the type occurs in Types in query form.
     template <typename T>
     using can_query = detail::pack_contains<detail::query_form, T, Types...>;
+
+    // Find the given type in Types.
     template <typename T>
     using find = detail::pack_find<detail::unique_form, T, Types...>;
+
+    // Check whether the given type occurs in Types.
     template <typename T>
     using can_find = detail::pack_contains<detail::unique_form, T, Types...>;
+
+    // Compile-time asserts for pack membership in query and unique form.
     template <typename T>
     using assert_pack_contains = detail::assert_pack_contains<detail::unique_form, T, Types...>;
     template <typename T>
@@ -181,8 +192,6 @@ class variant {
         current = invalid;
     }
 
-    bool currently_recursive() const { return current != invalid && data.is_recursive(current); }
-
     template <typename TQuery, typename... Args>
     void emplace_impl(Args&&... args) {
         using index = find<TQuery>;
@@ -236,37 +245,17 @@ public:
         current = index::value;
     }
 
-    variant& operator=(variant const& v) {
+    variant& operator=(variant v) {
         if (this != &v) {
-            if (currently_recursive()) {
-                auto v2(v);
-                destroy_current();
-                move(std::move(v2));
-            } else {
-                destroy_current();
-                copy(v);
-            }
-        }
-        return *this;
-    }
-
-    variant& operator=(variant&& v) {
-        if (this != &v) {
-            if (currently_recursive()) {
-                auto v2(std::move(v));
-                destroy_current();
-                move(std::move(v2));
-            } else {
-                destroy_current();
-                move(std::move(v));
-            }
+            destroy_current();
+            move(std::move(v));
         }
         return *this;
     }
 
     template <typename TQuery, typename = std::enable_if_t<can_find<TQuery>::value>>
-    variant& operator=(TQuery&& v) {
-        emplace_impl<TQuery>(std::forward<TQuery>(v));
+    variant& operator=(TQuery v) {
+        emplace_impl<TQuery>(std::move(v));
         return *this;
     }
 

@@ -60,12 +60,6 @@ template <template <typename> class NORM, typename T, typename... Pack>
 struct has_duplicates<NORM, T, Pack...> : std::integral_constant<bool, pack_contains<NORM, T, Pack...>::value ||
                                                                            has_duplicates<NORM, Pack...>::value> {};
 
-template <typename T>
-struct is_recursive : std::false_type {};
-
-template <typename T>
-struct is_recursive<recursive_helper<T>> : std::true_type {};
-
 namespace impl {
 template <typename T>
 struct remove_recursive_helper {

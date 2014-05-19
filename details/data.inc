@@ -38,10 +38,6 @@ union variant_data<TStore, Rest...> {
         return n > 0 ? decltype(next)::get_move_constructor(n - 1) : operations<TStore>::move;
     }
 
-    static bool is_recursive(int n) {
-        return n > 0 ? decltype(next)::is_recursive(n - 1) : detail::is_recursive<TStore>::value;
-    }
-
 private:
     template <typename GetStore>
     void const* cget_impl(std::true_type) const {
@@ -99,11 +95,6 @@ union variant_data<> {
     static move_func get_move_constructor(int) {
         assert(!"internal error: access to copy-constructor of non-existent element");
         return nullptr;
-    }
-
-    static bool is_recursive(int) {
-        assert(!"internal error: query of recursivity of non-existent element");
-        return false;
     }
 };
 
